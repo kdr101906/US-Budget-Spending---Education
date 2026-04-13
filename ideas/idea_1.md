@@ -1,0 +1,7 @@
+First Idea: Education
+Primary Question/Topic: Do universities that receive higher levels of funding or aid produce graduates that have higher starting salaries?
+For the columns in the usaspending.gov data (columns.csv), we can look at the total_dollars_obligated column to see how much money the government has committed to pay. We can also filter the educational_institution column to only focus on the educational contracts.
+Our external dataset will be looking at the U.S. College Scorecard managed by the Department of Education that tracks things like graduation rates and earnings. We will be looking at the "Most Recent Institution-Level Data" dataset. This is the link: https://collegescorecard.ed.gov/data/
+For the contracts.csv file, we will be looking at the recipient_uei, which shows money allocated to specific campuses, recipient_name, and total_dollars_obligated. For the College scorecard dataset, we will look at UNITID, OPEID, and INSTNM. We will try to merge using the recipient_name and INSTNM columns. 
+
+Our proposed conclusion is that there may be a positive correlation in that more money spent for educational purposes would lead to higher salaries following their graduation. 
