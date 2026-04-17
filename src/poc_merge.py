@@ -1,17 +1,19 @@
 import pandas as pd
-
-contracts = pd.read_csv("../data/raw/All_Contracts.csv", low_memory=False)
-print(len(contracts))#Number of rows in the USASpending dataset sample
-contracts = contracts[contracts['awarding_agency_name'] == "Department of Education"]
-contracts['recipient_state_name'] = contracts['recipient_state_name'].str.lower().str.strip()
-funding = contracts.groupby("recipient_state_name")["federal_action_obligation"].sum().reset_index() #groups by state names and adds the funding values up for each state
-funding.columns = ["State", "Federal Funding"]
-
-scores = pd.read_csv("../data/raw/NAPE_State_Scores.csv")
-print(len(scores)) #The number of rows in external dataset for the test scores in 2019
-scores['State'] = scores['State'].str.lower().str.strip()
-df = pd.merge(scores, funding, on="State", how="inner") 
-print("The key we merged on was State") #Merged on the Key State
+fund_2019 = pd.read_csv("../data/raw/2019contracts.csv", low_memory=False)
+fund_2022 = pd.read_csv("../data/raw/2022contracts.csv", low_memory=False)
+fund_2024 = pd.read_csv("../data/raw/2024contracts.csv", low_memory=False)
+fund_2019["Year"] = 2019
+fund_2022["Year"] = 2022
+fund_2024["Year"] = 2024
+All_contracts = pd.concat([fund_2019, fund_2022, fund_2024], ignore_index=True)
+print(len(All_contracts))#Number of rows when we concatonated the 2019, 2022, and 2024 contracts csv files
+contracts = All_contracts.groupby(["recipient_state_name", "Year"])["federal_action_obligation"].sum().reset_index()
+contracts = contracts.rename(columns={"recipient_state_name": "State", "federal_action_obligation": "Federal Funding"})
+contracts['State'] = contracts['State'].str.lower().str.strip()
+scores = pd.read_csv("../data/raw/NAEP_State_Scores.csv")
+scores["State"] = scores["State"].str.lower().str.strip()
+print(len(scores)) #The number of rows in external dataset for the test scores in 2019 2022 2024
+df = pd.merge(scores, contracts, on=["State", "Year"], how = "inner") #The keys used to merge were the state and year
+print("The keys used to merge were State and Year.")
 print(df)
-print(len(df)) #The length of the merged dataset
-
+print(len(df)) #Number of rows in final merged dataset
