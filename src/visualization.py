@@ -5,10 +5,6 @@ import poc_merge as pm
 import os
 import seaborn as sns
 
-import pandas as pd
-import plotly.express as px
-import matplotlib.pyplot as plt
-import os
 
 def dataframe():
     fund_2019 = pd.read_csv("data/raw/2019contracts.csv", low_memory=False)
@@ -19,13 +15,15 @@ def dataframe():
     fund_2024["Year"] = 2024
     All_contracts = pd.concat([fund_2019, fund_2022, fund_2024], ignore_index=True)
     print(len(All_contracts))#Number of rows when we concatonated the 2019, 2022, and 2024 contracts csv files
+    All_contracts["recipient_state_name"] = All_contracts["recipient_state_name"].astype(str).str.lower().str.strip()
     contracts = All_contracts.groupby(["recipient_state_name", "Year"])["federal_action_obligation"].sum().reset_index()
     contracts = contracts.rename(columns={"recipient_state_name": "State", "federal_action_obligation": "Federal Funding"})
-    contracts['State'] = contracts['State'].str.lower().str.strip()
     scores = pd.read_csv("data/raw/NAEP_State_Scores.csv")
-    scores["State"] = scores["State"].str.lower().str.strip()
+    scores["State"] = scores["State"].astype(str).str.lower().str.strip()
+    scores["Year"] = scores["Year"].astype(int)
     print(len(scores)) #The number of rows in external dataset for the test scores in 2019 2022 2024
-    df = pd.merge(scores, contracts, on=["State", "Year"], how = "inner") #The keys used to merge were the state and year
+    df = pd.merge(scores, contracts, on=["State", "Year"], how = "left") #The keys used to merge were the state and year
+    df["Federal Funding"] = df["Federal Funding"].fillna(0) #11 states are not in the 2022contracts.csv so we fill the NaN values with 0 instead
     print("The keys used to merge were State and Year.")
     print(df)
     print(len(df)) #Number of rows in final merged dataset
@@ -35,35 +33,17 @@ def dataframe():
     print(f"File successively saved.")
     return df
 
-def trends(df):
-    plt.figure(figsize=(12, 8))
-    
-    # Create the scatter plot
-    # We use a dictionary to ensure each year gets a specific color
-    colors = {2019: 'blue', 2022: 'red', 2024: 'green'}
-    
-    for year in [2019, 2022, 2024]:
-        subset = df[df['Year'] == year]
-        plt.scatter(subset['Federal Funding'], subset['AverageScaleScore'], 
-                    label=year, color=colors[year], alpha=0.6, edgecolors='w')
 
-    plt.title("Impact of Federal Funding on NAEP Scores")
-    plt.xlabel("Federal Funding ($)")
-    plt.ylabel("Average Scale Score")
-    plt.legend(title="Year")
-    plt.grid(True, linestyle='--', alpha=0.7)
-
-    # Save to clean directory
-    save_path = "data/clean/funding_vs_scores.png"
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
-    plt.close()
-    print(f"PNG version saved to: {save_path}")
-
-def plot_map(df):
-    years = [2019, 2022, 2024]
-    
-    # Lowercase dictionary for exact matching
-    state_to_abbrev = {
+def map(df, start_year, end_year):
+    selected_states = ["louisiana", "west virginia", "mississippi", "kentucky", "tennessee", "idaho", "florida", "nebraska", "wyoming", "alaska"]
+    df_start = df[df["Year"] == start_year].groupby("State")["Federal Funding"].first()
+    df_end = df[df["Year"] == end_year].groupby("State")["Federal Funding"].first()
+    #The difference
+    full_diff = pd.DataFrame({'funding_start': df_start,'funding_end': df_end})
+    full_diff["Funding_Change"] = full_diff["funding_end"] - full_diff["funding_start"]
+    full_diff = full_diff.reset_index()
+    #Chloropeth maps only take the state abbreviations
+    state_to_code = {
         "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
         "colorado": "CO", "connecticut": "CT", "delaware": "DE", "florida": "FL", "georgia": "GA",
         "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA",
@@ -75,36 +55,31 @@ def plot_map(df):
         "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT",
         "virginia": "VA", "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY"
     }
+    full_diff["Code"] = full_diff["State"].str.strip().map(state_to_code)
+    full_diff["Group"] = full_diff["State"].apply(lambda x: "Focus State" if x in selected_states else "Other State")
+    fig = px.choropleth(
+        full_diff,
+        locations="Code",
+        locationmode="USA-states",
+        color="Funding_Change",
+        scope="usa",
+        color_continuous_scale="RdBu",
+        color_continuous_midpoint=0,
+        title=f"Change in Federal Funding ({start_year}-{end_year})",
+        labels={'Funding_Change': 'Change in Funding ($)', 'Group': 'Dataset Group'},
+        hover_data=["Group", "Funding_Change"] 
+    )
+    save_path = f"data/clean/funding{start_year}_{end_year}.png"
+    fig.write_image(save_path)
 
-    for year in years:
-        # 1. Filter data for the specific year
-        df_year = df[df["Year"] == year].copy()
-        
-        # 2. Map the state codes
-        df_year["State_Code"] = df_year["State"].str.strip().map(state_to_abbrev)
-
-        # 3. Create the Choropleth
-        fig = px.choropleth(
-            df_year,
-            locations="State_Code", 
-            locationmode="USA-states",
-            color="Federal Funding",
-            scope="usa",
-            title=f"{year} Federal Funding by State",
-            color_continuous_scale="Reds",
-            # This ensures the color scale is consistent across all years for comparison
-            range_color=[df["Federal Funding"].min(), df["Federal Funding"].max()]
-        )
-
-        # 4. Save each year as a unique file in data/clean
-        save_path = f"data/clean/funding_map_{year}.png"
-        fig.write_image(save_path)
-        print(f"Map successfully saved to {save_path}")
-
-
-if __name__== "__main__":
+if __name__ == "__main__":
     finaldf = dataframe()
-    plot_map(finaldf)
+    comparisons = [(2019, 2022), (2019, 2024), (2022, 2024)]
+    for start, end in comparisons:
+        map(finaldf, start, end)
+
+
+
 
 
 

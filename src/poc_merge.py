@@ -12,13 +12,15 @@ def dataframe():
     fund_2024["Year"] = 2024
     All_contracts = pd.concat([fund_2019, fund_2022, fund_2024], ignore_index=True)
     print(len(All_contracts))#Number of rows when we concatonated the 2019, 2022, and 2024 contracts csv files
+    All_contracts["recipient_state_name"] = All_contracts["recipient_state_name"].astype(str).str.lower().str.strip()
     contracts = All_contracts.groupby(["recipient_state_name", "Year"])["federal_action_obligation"].sum().reset_index()
     contracts = contracts.rename(columns={"recipient_state_name": "State", "federal_action_obligation": "Federal Funding"})
-    contracts['State'] = contracts['State'].str.lower().str.strip()
     scores = pd.read_csv("data/raw/NAEP_State_Scores.csv")
-    scores["State"] = scores["State"].str.lower().str.strip()
+    scores["State"] = scores["State"].astype(str).str.lower().str.strip()
+    scores["Year"] = scores["Year"].astype(int)
     print(len(scores)) #The number of rows in external dataset for the test scores in 2019 2022 2024
-    df = pd.merge(scores, contracts, on=["State", "Year"], how = "outer") #The keys used to merge were the state and year
+    df = pd.merge(scores, contracts, on=["State", "Year"], how = "left") #The keys used to merge were the state and year
+    df["Federal Funding"] = df["Federal Funding"].fillna(0) #11 states are not in the 2022contracts.csv so we fill the NaN values with 0 instead
     print("The keys used to merge were State and Year.")
     print(df)
     print(len(df)) #Number of rows in final merged dataset
