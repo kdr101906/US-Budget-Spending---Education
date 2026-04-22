@@ -1,5 +1,5 @@
 [workspace]
-authors = ["Grace <m283786@usna.edu>"]
+authors = ["Grace <m283786@usna.edu>", "Kevin <m285658@usna.edu>]
 channels = ["conda-forge"]
 name = "US-Budget-Spending---Education"
 platforms = ["linux-64"]
